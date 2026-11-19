@@ -1,0 +1,43 @@
+name: Build GREEN SHARK APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build APK from ZIP
+        run: |
+          rm -rf build_temp
+          mkdir -p build_temp
+          for z in *.zip; do
+            if [ -f "$z" ]; then
+              unzip -o "$z" -d build_temp
+            fi
+          done
+          PROJ_DIR=$(find build_temp -name "settings.gradle.kts" -o -name "settings.gradle" -exec dirname {} \; | head -n 1)
+          if [ -z "$PROJ_DIR" ]; then
+            echo "Android project root not found inside zip"
+            exit 1
+          fi
+          echo "Building project in: $PROJ_DIR"
+          cd "$PROJ_DIR"
+          gradle assembleDebug --stacktrace
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-shark-apk
+          path: "**/*.apk"
+          if-no-files-found: ignore
+          
